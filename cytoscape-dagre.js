@@ -143,6 +143,61 @@ SOFTWARE.
 
       dagre.layout( g );
 
+      var gEdgeIds = g.edges();
+      for( var i = 0; i < gEdgeIds.length; i++ ){
+        var id = gEdgeIds[i];
+        var e = g.edge( id );
+
+        if (e && e.points) {
+          if (e.points.length > 3) {
+            console.log('More than 3 points', e.points);
+            var distances = [];
+
+            var pStart = e.points[0];
+            var pEnd = e.points[e.points.length - 1];
+
+            var getDistance = function(pSegment) {
+              let result = {
+                'distance': Math.abs(pSegment.x - pStart.x),
+                'weight': Math.abs(pSegment.y - pStart.y) / Math.abs(pEnd.y - pStart.y)
+              };
+
+              if (pEnd.x - pStart.x === 0) {
+                return result;
+              }
+
+              var slope = (pEnd.y - pStart.y) / (pEnd.x - pStart.x);
+              var yIntercept = pStart.y - slope * pStart.x;
+
+              result.distance = (slope * pSegment.x - pSegment.y + yIntercept) / (Math.sqrt(Math.pow(slope, 2) + 1));
+
+              var slopeOrthogonal = -1 * (1 / slope);
+              var yInterceptOrthogonal = pSegment.y - (slopeOrthogonal * pSegment.x);
+              var distanceOrhthogonal = (slopeOrthogonal * pStart.x - pStart.y + yInterceptOrthogonal) / (Math.sqrt(Math.pow(slopeOrthogonal, 2) + 1));
+
+              result.weight = distanceOrhthogonal / Math.sqrt(Math.pow(pEnd.x - pStart.x, 2) + Math.pow(pEnd.y - pStart.y, 2));
+
+              return result;
+            };
+
+            for ( var j = 0; j < e.points.length; j++) {
+              distances.push(getDistance(e.points[j]));
+            }
+
+            distances[distances.length - 1].distance = 0;
+            distances[distances.length - 1].weight = 1;
+            console.log('Distances calculated', distances);
+
+            cy.style().selector('edge#' + id.name).style('curve-style', 'segments').update();
+            cy.style().selector('edge#' + id.name).style('segment-distances', distances.map(distance => distance.distance).join(' '));
+            cy.style().selector('edge#' + id.name).style('segment-weights', distances.map(distance => distance.weight).join(' '));
+          } else {
+            console.log('Less than 3 points', e);
+            cy.style().selector('edge#' + id.name).style('curve-style', 'bezier').update();
+          }
+        }
+      }
+
       var gNodeIds = g.nodes();
       for( var i = 0; i < gNodeIds.length; i++ ){
         var id = gNodeIds[i];
